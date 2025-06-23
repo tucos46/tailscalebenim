@@ -1,14 +1,19 @@
-#!/usr/bin/env bash
+#!/bin/sh
+set -e
 
-/render/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
-PID=$!
+# Start the tailscaled daemon in the background
+/render/tailscaled &
 
-ADVERTISE_ROUTES=${ADVERTISE_ROUTES:-10.0.0.0/8}
-until /render/tailscale up --authkey="${TAILSCALE_AUTHKEY}" --hostname="${RENDER_SERVICE_NAME}" --advertise-routes="$ADVERTISE_ROUTES"; do
-  sleep 0.1
-done
-export ALL_PROXY=socks5://localhost:1055/
-tailscale_ip=$(/render/tailscale ip)
-echo "Tailscale is up at IP ${tailscale_ip}"
+# Bring the tailscale network up, with our required flags
+# This command will stay in the foreground, keeping the container alive
+/render/tailscale up \
+  --authkey="${TAILSCALE_AUTHKEY}" \
+  --hostname="${RENDER_SERVICE_NAME}" \
+  --advertise-routes="${ROUTES}" \
+  --accept-routes \
+  --net=userspace \
+  --advertise-exit-node \
+  "$@"
 
-wait ${PID}
+# Wait for the tailscaled background process to exit
+wait $!
