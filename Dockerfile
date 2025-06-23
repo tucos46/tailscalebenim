@@ -4,19 +4,21 @@ FROM debian:bullseye-slim
 # Install wget and ca-certificates for downloading
 RUN apt-get update && apt-get install -y wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Download and install the latest stable Tailscale
-# The executables will be placed in /usr/local/bin which is in the $PATH
-RUN TS_VER=$(wget -qO- 'https://api.github.com/repos/tailscale/tailscale/releases/latest' | grep -oP '"tag_name":\s*"v\K[0-9.]+') && \
-    wget -qO "tailscale.tgz" "https://pkgs.tailscale.com/stable/tailscale_${TS_VER}_amd64.tgz" && \
-    tar xzf "tailscale.tgz" --strip-components=1 && \
+# Set a specific, known-good, recent version of Tailscale. This is the most reliable method.
+ENV TAILSCALE_VERSION="1.66.0"
+ENV TS_FILE="tailscale_${TAILSCALE_VERSION}_amd64.tgz"
+
+# Download, extract, and move the executables to a standard location in the $PATH
+RUN wget -qO "${TS_FILE}" "https://pkgs.tailscale.com/stable/${TS_FILE}" && \
+    tar xzf "${TS_FILE}" --strip-components=1 && \
     mv tailscale /usr/local/bin/ && \
     mv tailscaled /usr/local/bin/ && \
-    rm "tailscale.tgz"
+    rm "${TS_FILE}"
 
-# Copy our run script
+# Copy our run script which contains the correct flags
 COPY run.sh /app/run.sh
 RUN chmod +x /app/run.sh
 
-# Set the entrypoint
+# Set the working directory and the final command
 WORKDIR /app
 CMD ["./run.sh"]
